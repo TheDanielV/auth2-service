@@ -1,12 +1,21 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
-    app_name: str = "MyProject"
+    app_name: str = "Auth Service"
     debug: bool = False
-    database_url: str
-    secret_key: str
+    database_url: str = "sqlite:///./auth_service.db"
+    secret_key: str = "development-secret-key"
+    issuer: str = "http://localhost:8000"
+    access_token_expire_minutes: int = 60
+    rsa_private_key: str | None = None
+    rsa_public_key: str | None = None
+    rsa_key_id: str = "authservice-main"
 
-    class Config:
-        env_file = ".env"
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-settings = Settings()
+
+def get_settings() -> Settings:
+    return Settings()
+
+
+settings = get_settings()
