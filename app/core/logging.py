@@ -1,23 +1,13 @@
 import logging
 import logging.config
-from pathlib import Path
-from datetime import datetime
 
-def setup_logging(log_level: str = "INFO", log_dir: str = "logs") -> None:
+def setup_logging(log_level: str = "INFO") -> None:
     """
     Configura el sistema de logging para la aplicación FastAPI.
 
     Args:
         log_level: Nivel de logging (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-        log_dir: Directorio donde se guardarán los archivos de log
     """
-
-    # Crear directorio de logs si no existe
-    log_path = Path(log_dir)
-    log_path.mkdir(exist_ok=True)
-
-    # Nombre del archivo de log con timestamp
-    log_file = log_path / f"authservice_{datetime.now().strftime('%Y%m%d')}.log"
 
     # Configuración de logging
     logging_config = {
@@ -36,37 +26,30 @@ def setup_logging(log_level: str = "INFO", log_dir: str = "logs") -> None:
             "console": {
                 "class": "logging.StreamHandler",
                 "level": log_level,
-                "formatter": "simple",
-                "stream": "ext://sys.stdout"
-            },
-            "file": {
-                "class": "logging.FileHandler",
-                "level": log_level,
                 "formatter": "detailed",
-                "filename": str(log_file),
-                "encoding": "utf-8"
+                "stream": "ext://sys.stdout"
             }
         },
         "loggers": {
             "app": {
                 "level": log_level,
-                "handlers": ["console", "file"],
+                "handlers": ["console"],
                 "propagate": False
             },
             "sqlalchemy.engine": {
                 "level": "WARNING",
-                "handlers": ["file"],
+                "handlers": ["console"],
                 "propagate": False
             },
             "uvicorn": {
                 "level": log_level,
-                "handlers": ["console", "file"],
+                "handlers": ["console"],
                 "propagate": False
             }
         },
         "root": {
             "level": log_level,
-            "handlers": ["console", "file"]
+            "handlers": ["console"]
         }
     }
 
