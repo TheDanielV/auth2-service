@@ -1,0 +1,42 @@
+# Control de versiones
+.git/
+.gitignore
+
+# Entornos virtuales de Python
+.venv/
+venv/
+env/
+
+# Caché de Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Archivos de base de datos locales
+*.db
+*.sqlite3
+
+# Variables de entorno (contienen secretos)
+.env
+.env.*
+!.env.example
+
+# Logs locales
+logs/
+
+# Archivos del IDE / editor
+.idea/
+.vscode/
+*.iml
+
+# Documentación y archivos auxiliares
+*.md
+SETUP_LOGS.md
+LOGGING_GUIDE.md
+EJEMPLOS_LOGS.md
+
+# El propio Dockerfile no necesita incluirse en el contexto
+Dockerfile
+.dockerignore
+
