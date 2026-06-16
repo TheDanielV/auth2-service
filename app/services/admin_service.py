@@ -10,6 +10,7 @@ from app.schemas.client import OAuthClientCreate
 from app.schemas.role import RoleCreate
 from app.schemas.tenant import TenantCreate
 from app.schemas.user import UserCreate
+from app.services.password_policy import PasswordPolicyValidationError, validate_password_with_policies
 
 
 class EntityAlreadyExistsError(ValueError):
@@ -18,6 +19,10 @@ class EntityAlreadyExistsError(ValueError):
 
 class EntityNotFoundError(LookupError):
     """Se lanza cuando la entidad solicitada no existe."""
+
+
+class PolicyValidationError(ValueError):
+    """Se lanza cuando una contraseña no cumple la política configurada."""
 
 
 def _get_tenant_or_raise(db: Session, tenant_id: int) -> Tenant:
@@ -42,11 +47,27 @@ def create_tenant(db: Session, payload: TenantCreate) -> Tenant:
 def create_oauth_client(db: Session, tenant_id: int, payload: OAuthClientCreate) -> OAuthClient:
     _get_tenant_or_raise(db, tenant_id)
 
+    password_policies = None
+    if payload.password_policies:
+        password_policies = []
+        for policy in payload.password_policies:
+            if isinstance(policy, str):
+                password_policies.append(policy)
+            else:
+                # Convertir Pydantic BaseModel a diccionario
+                policy_dict = policy.model_dump(mode="json")
+                # Si el nombre es un enum, usar su valor
+                if isinstance(policy_dict.get("name"), dict) and "name" in policy_dict:
+                    # Manejar caso donde name podría ser serializado especialmente
+                    policy_dict["name"] = policy.name.value if hasattr(policy.name, "value") else str(policy.name)
+                password_policies.append(policy_dict)
+
     client = OAuthClient(
         tenant_id=tenant_id,
         client_id=payload.client_id,
         client_secret=hash_secret(payload.client_secret),
         redirect_uris=payload.redirect_uris,
+        password_policies=password_policies,
     )
     db.add(client)
     try:
@@ -54,6 +75,30 @@ def create_oauth_client(db: Session, tenant_id: int, payload: OAuthClientCreate)
     except IntegrityError as exc:
         db.rollback()
         raise EntityAlreadyExistsError("Ya existe un cliente con ese client_id") from exc
+    db.refresh(client)
+    return client
+
+
+def update_oauth_client_password_policies(
+    db: Session,
+    tenant_id: int,
+    client_id: str,
+    policies: list[str | dict[str, object]],
+) -> OAuthClient:
+    _get_tenant_or_raise(db, tenant_id)
+
+    client = db.scalar(
+        select(OAuthClient).where(
+            OAuthClient.tenant_id == tenant_id,
+            OAuthClient.client_id == client_id,
+        )
+    )
+    if client is None:
+        raise EntityNotFoundError("Cliente OAuth no encontrado en este tenant")
+
+    client.password_policies = policies
+    db.add(client)
+    db.commit()
     db.refresh(client)
     return client
 
@@ -108,6 +153,21 @@ def create_user(db: Session, tenant_id: int, payload: UserCreate) -> User:
         ).all()
         if len(roles) != len(set(payload.role_ids)):
             raise EntityNotFoundError("Uno o más roles no existen en este tenant")
+
+    if payload.client_id:
+        oauth_client = db.scalar(
+            select(OAuthClient).where(
+                OAuthClient.tenant_id == tenant_id,
+                OAuthClient.client_id == payload.client_id,
+            )
+        )
+        if oauth_client is None:
+            raise EntityNotFoundError("El client_id no existe en este tenant")
+
+        try:
+            validate_password_with_policies(payload.password, oauth_client.password_policies)
+        except PasswordPolicyValidationError as exc:
+            raise PolicyValidationError(str(exc)) from exc
 
     user = User(
         tenant_id=tenant_id,

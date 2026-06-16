@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
+from uuid import UUID, uuid4
 
-from sqlalchemy import JSON, CheckConstraint, ForeignKey, String, UniqueConstraint
+from sqlalchemy import JSON, CheckConstraint, ForeignKey, String, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -24,7 +25,7 @@ class User(Base):
         ),
     )
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, index=True, default=uuid4)
     tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
     email: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     username: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)

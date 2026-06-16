@@ -2,17 +2,20 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.dependencies.db import get_db
-from app.schemas.client import OAuthClientCreate, OAuthClientRead
+from app.schemas.client import OAuthClientCreate, OAuthClientPoliciesUpdate, OAuthClientRead
+from app.schemas.response import StandardResponse, ResponseStatus, StandardErrorResponse
 from app.schemas.role import RoleCreate, RoleRead
 from app.schemas.tenant import TenantCreate, TenantRead
 from app.schemas.user import UserCreate, UserRead
 from app.services.admin_service import (
     EntityAlreadyExistsError,
     EntityNotFoundError,
+    PolicyValidationError,
     create_oauth_client,
     create_role,
     create_tenant,
     create_user,
+    update_oauth_client_password_policies,
 )
 
 router = APIRouter()
@@ -37,8 +40,40 @@ def create_client_endpoint(
         client = create_oauth_client(db, tenant_id, payload)
     except EntityNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except PolicyValidationError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
     except EntityAlreadyExistsError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    return OAuthClientRead.model_validate(client)
+
+
+@router.put("/{tenant_id}/clients/{client_id}/password-policies", response_model=OAuthClientRead)
+def update_client_password_policies_endpoint(
+    tenant_id: int,
+    client_id: str,
+    payload: OAuthClientPoliciesUpdate,
+    db: Session = Depends(get_db),
+) -> OAuthClientRead:
+    try:
+        policies_list = []
+        for policy in payload.password_policies:
+            if isinstance(policy, str):
+                policies_list.append(policy)
+            else:
+                policy_dict = policy.model_dump(mode="json")
+                # Si el nombre es un enum, usar su valor
+                if isinstance(policy_dict.get("name"), dict) and "name" in policy_dict:
+                    policy_dict["name"] = policy.name.value if hasattr(policy.name, "value") else str(policy.name)
+                policies_list.append(policy_dict)
+
+        client = update_oauth_client_password_policies(
+            db,
+            tenant_id,
+            client_id,
+            policies_list,
+        )
+    except EntityNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     return OAuthClientRead.model_validate(client)
 
 
@@ -52,6 +87,8 @@ def create_user_endpoint(
         user = create_user(db, tenant_id, payload)
     except EntityNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except PolicyValidationError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
     except EntityAlreadyExistsError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 

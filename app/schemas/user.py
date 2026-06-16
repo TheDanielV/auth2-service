@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from typing import Any
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class UserCreate(BaseModel):
+    client_id: str | None = Field(default=None, max_length=120)
     email: str | None = Field(default=None, max_length=255)
     username: str | None = Field(default=None, max_length=100)
     password: str = Field(..., min_length=8, max_length=255)
@@ -22,7 +24,7 @@ class UserCreate(BaseModel):
 class UserRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: UUID
     tenant_id: int
     email: str | None
     username: str | None

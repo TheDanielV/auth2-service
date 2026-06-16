@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import Any
 from typing import TYPE_CHECKING
 
 from sqlalchemy import JSON, ForeignKey, String
@@ -19,6 +20,7 @@ class OAuthClient(Base):
     client_id: Mapped[str] = mapped_column(String(120), unique=True, nullable=False, index=True)
     client_secret: Mapped[str] = mapped_column(String(255), nullable=False)
     redirect_uris: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    password_policies: Mapped[list[dict[str, Any] | str]] = mapped_column(JSON, nullable=True, default=list)
 
     tenant: Mapped["Tenant"] = relationship(back_populates="oauth_clients")
 
