@@ -3,7 +3,6 @@ from sqlalchemy.orm import Session
 
 from app.dependencies.db import get_db
 from app.schemas.client import OAuthClientCreate, OAuthClientPoliciesUpdate, OAuthClientRead
-from app.schemas.response import StandardResponse, ResponseStatus, StandardErrorResponse
 from app.schemas.role import RoleCreate, RoleRead
 from app.schemas.tenant import TenantCreate, TenantRead
 from app.schemas.user import UserCreate, UserRead
@@ -87,8 +86,6 @@ def create_user_endpoint(
         user = create_user(db, tenant_id, payload)
     except EntityNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
-    except PolicyValidationError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
     except EntityAlreadyExistsError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
